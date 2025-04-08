@@ -1,14 +1,10 @@
-import axios from 'axios';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, FlatList, Button, Platform } from 'react-native';
-import * as Location from 'expo-location';
-import * as TaskManager from 'expo-task-manager';
+import { StyleSheet, Text, View, FlatList, Button, Switch, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Switch } from 'react-native';
+import axios from 'axios';
+import BackgroundGeolocation from '@transistorsoft/react-native-background-geolocation';
 
-
-const LOCATION_TASK_NAME = 'background-location-task';
-const BACKEND_URL = 'http://192.168.1.72:3000'; 
+const BACKEND_URL = 'https://c636-2600-1700-7c00-a9d0-3976-ddb3-dea5-3feb.ngrok-free.app'; 
 
 const USER_ID = 'user123';
 
@@ -23,6 +19,7 @@ const TARGET_LOCATIONS = [
     latitude: 32.86984,
     longitude: -117.21776,
   },
+
 ];
 
 function getDistance(lat1, lon1, lat2, lon2) {
@@ -41,107 +38,55 @@ function getDistance(lat1, lon1, lat2, lon2) {
 
 const getTodayKey = () => new Date().toISOString().split('T')[0];
 
-TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
-  if (error){
-    console.log('taskmanager error');
-    return;
-  } 
 
-  const location = data?.locations?.[0];
-
-  if (location) {
-    const {latitude, longitude} = location.coords;
-    for (let locat of TARGET_LOCATIONS){
-      const dist = getDistance(latitude, longitude, locat.latitude, locat.longitude)
-      if (dist < 100) {
-        const todayKey = getTodayKey();
-        const stored = JSON.parse(await AsyncStorage.getItem(todayKey)) || {}; //trying to load todays check in data
-        if (!stored[locat.name]){ //if there is no check in data (havent checked in today) 
-          stored[locat.name] = true;
-          await AsyncStorage.setItem(todayKey, JSON.stringify(stored)); //set a check in for this location and store it for today
-          await axios.post(`${BACKEND_URL}/api/checkin`, {  // send the check in data to database
-            userId: USER_ID,
-            locationName: locat.name,
-          });
-          console.log(`✅ Synced ${loc.name}`);
-        }
-      }
-    }
-  }
-
-})
 
 export default function Index() {
   const [visitedToday, setVisitedToday] = useState({});
   const [trackingEnabled, setTrackingEnabled] = useState(false);
-  const [foregroundGranted, setForegroundGranted] = useState(false);
 
   useEffect(() => {
+    const loadVisited = async () => {
+      const key = getTodayKey();
+      const data = await AsyncStorage.getItem(key);
+      setVisitedToday(data ? JSON.parse(data) : {});
+    };
+
     loadVisited();
-    checkTrackingStatus();
-    checkForegroundPermission();
+
+    BackgroundGeolocation.onLocation(async (location) => {
+      const { latitude, longitude } = location.coords;
+      console.log(`📍 New location: ${latitude}, ${longitude}`);
+      await checkProximity(latitude, longitude);
+    });
+
+    BackgroundGeolocation.ready({
+      desiredAccuracy: BackgroundGeolocation.DESIRED_ACCURACY_HIGH,
+      distanceFilter: 50,
+      stopOnTerminate: false,
+      startOnBoot: true,
+      allowsBackgroundLocationUpdates: true,
+      locationAuthorizationRequest: 'Always',
+      notification: {
+        title: 'Tracking Location',
+        text: 'App is tracking even when closed',
+      },
+    }, (state) => {
+      setTrackingEnabled(state.enabled);
+      if (!state.enabled) {
+        BackgroundGeolocation.start();
+      }
+    });
+
+    return () => {
+      BackgroundGeolocation.removeAllListeners();
+    };
   }, []);
 
-  const checkTrackingStatus = async () => {
-    const started = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
-    setTrackingEnabled(started);
-  };
 
-  const checkForegroundPermission = async () => {
-    const { status } = await Location.getForegroundPermissionsAsync();
-    setForegroundGranted(status === 'granted');
-  };
-
-  const loadVisited = async() => {
-    const key = getTodayKey();
-    const data = await AsyncStorage.getItem(key);
-    setVisitedToday(data ? JSON.parse(data) : {});
-  }
-
-  const startBackgroundTracking = async () => {
-    console.log("startBackgroundTracking ran");
-    const fg = await Location.requestForegroundPermissionsAsync();
-    const bg = await Location.requestBackgroundPermissionsAsync();
-
-    if (fg.status !== 'granted' || bg.status !== 'granted') {
-      alert('Location permissions required');
-      return;
-    }
-
-    const started = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
-    if (!started) {
-      await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-        accuracy: Location.Accuracy.Balanced,
-        timeInterval: 300000, // 5 min
-        distanceInterval: 100, // 100 meters
-        showsBackgroundLocationIndicator: true,
-        foregroundService: {
-          notificationTitle: 'Tracking Location',
-          notificationBody: 'Running in background...',
-        },
-      });
-    }
-    setTrackingEnabled(true);
-    
-
-    
-  }
-
-  const stopBackgroundTracking = async () => {
-    const started = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
-    if (started) {
-      await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
-      setTrackingEnabled(false);
-      console.log("🚫 Tracking stopped");
-    }
-  };
-
-  const manualCheck = async () => {
-    const loc = await Location.getCurrentPositionAsync({});
-    const { latitude, longitude } = loc.coords;
+  const checkProximity = async (lat, lon) => {
     for (let loc of TARGET_LOCATIONS) {
-      const dist = getDistance(latitude, longitude, loc.latitude, loc.longitude);
-      if (dist < 100 && !visitedToday[loc.name]){
+      const dist = getDistance(lat, lon, loc.latitude, loc.longitude);
+      if (dist < 100 && !visitedToday[loc.name]) {
         const key = getTodayKey();
         const updated = { ...visitedToday, [loc.name]: true };
         await AsyncStorage.setItem(key, JSON.stringify(updated));
@@ -150,35 +95,41 @@ export default function Index() {
           userId: USER_ID,
           locationName: loc.name,
         });
-
-        alert(`✅ Checked into ${loc.name}`);
+        console.log(`✅ Checked in at ${loc.name}`);
       }
     }
   };
+
+    
+  const toggleTracking = async (value) => {
+    if (value) {
+      const status = await BackgroundGeolocation.requestPermission();
+      if (status === 'granted') {
+        BackgroundGeolocation.start();
+        setTrackingEnabled(true);
+      } else {
+        Alert.alert('Permission denied', 'Location permission is required to track.');
+      }
+    } else {
+      BackgroundGeolocation.stop();
+      setTrackingEnabled(false);
+    }
+  };
+
+  const manualCheck = async () => {
+    const location = await BackgroundGeolocation.getCurrentPosition({ persist: false });
+    await checkProximity(location.coords.latitude, location.coords.longitude);
+  };
+
   
 
   
 
 
   return (
-    <View style={{ marginTop: 30, alignItems: 'center' }}>
-      <Text style={{ fontSize: 18, marginBottom: 10 }}>
-        Background Tracking: {trackingEnabled ? '✅ Enabled' : '❌ Disabled'}
-       
-      </Text>
-      <Text style={{ fontSize: 18, marginBottom: 10 }}>
-        Foreground Tracking: {foregroundGranted ? '✅ Granted' : '❌ Not Granted'}
-      </Text>
-      <Switch
-        value={trackingEnabled}
-        onValueChange={async (value) => {
-          if (value) {
-            await startBackgroundTracking();
-          } else {
-            await stopBackgroundTracking();
-          }
-        }}
-      />
+    <View style={styles.container}>
+      <Text style={styles.title}>Background Tracking: {trackingEnabled ? '✅ Enabled' : '❌ Disabled'}</Text>
+      <Switch value={trackingEnabled} onValueChange={toggleTracking} />
       <Text style={styles.header}>Today's Check-ins</Text>
       <FlatList
         data={TARGET_LOCATIONS}
@@ -189,23 +140,27 @@ export default function Index() {
           </Text>
         )}
       />
-      <Button title="Check Now" onPress={manualCheck} />
+      <Button title="Manual Check" onPress={manualCheck} />
     </View>
   );
 }
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    paddingTop: 60,
-    paddingHorizontal: 20,
-    backgroundColor: '#fff',
+    marginTop: 40,
+    padding: 16,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 18,
+    marginBottom: 10,
   },
   header: {
-    fontSize: 24,
-    marginBottom: 20,
+    fontSize: 22,
+    marginTop: 20,
+    marginBottom: 10,
   },
   item: {
     fontSize: 18,
-    marginVertical: 8,
+    marginVertical: 6,
   },
 });

@@ -11,10 +11,15 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "UIBackgroundModes": ["location"],
+        "UIBackgroundModes": [
+          "location",
+          "location"
+        ],
         "NSLocationAlwaysAndWhenInUseUsageDescription": "We use your location to track visits.",
-        "NSLocationWhenInUseUsageDescription": "We use your location to track visits."
-      }
+        "NSLocationWhenInUseUsageDescription": "We use your location to track visits.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.ethanlee7102.locationcheckapp"
     },
     "android": {
       "adaptiveIcon": {
@@ -41,6 +46,15 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "b760ff05-5956-4ec2-a8d3-d0d6d8ad407f"
+      }
+    },
+    "owner": "ethanlee7102"
   }
 }

@@ -18,6 +18,10 @@ const visitSchema = new mongoose.Schema({
 
 const Visit = mongoose.model('Visit', visitSchema);
 
+app.get('/', (req, res) => {
+    res.send('Server is running');
+  });
+  
 app.post('/api/checkin', async(req,res) =>{
     const { userId, locationName } = req.body;
     if (!userId || !locationName){
