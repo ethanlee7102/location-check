@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, FlatList, Button, Switch, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import BackgroundGeolocation from '@transistorsoft/react-native-background-geolocation';
+import BackgroundGeolocation from 'react-native-background-geolocation';
 
-const BACKEND_URL = 'https://c636-2600-1700-7c00-a9d0-3976-ddb3-dea5-3feb.ngrok-free.app'; 
+const BACKEND_URL = 'https://1e61-2600-1700-7c00-a9d0-7154-d070-1dd1-8e5d.ngrok-free.app'; 
 
 const USER_ID = 'user123';
 
@@ -18,6 +18,16 @@ const TARGET_LOCATIONS = [
     name: 'Home',
     latitude: 32.86984,
     longitude: -117.21776,
+  },
+  {
+    name: 'jibers',
+    latitude: 32.86984,
+    longitude: -117.21776,
+  },
+  {
+    name: 'warren lecture hall',
+    latitude: 32.88072,
+    longitude: -117.23428,
   },
 
 ];
@@ -61,7 +71,7 @@ export default function Index() {
 
     BackgroundGeolocation.ready({
       desiredAccuracy: BackgroundGeolocation.DESIRED_ACCURACY_HIGH,
-      distanceFilter: 50,
+      distanceFilter: 100,
       stopOnTerminate: false,
       startOnBoot: true,
       allowsBackgroundLocationUpdates: true,

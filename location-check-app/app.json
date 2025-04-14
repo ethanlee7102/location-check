@@ -12,7 +12,6 @@
       "supportsTablet": true,
       "infoPlist": {
         "UIBackgroundModes": [
-          "location",
           "location"
         ],
         "NSLocationAlwaysAndWhenInUseUsageDescription": "We use your location to track visits.",
@@ -25,7 +24,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.ethanlee7102.locationcheckapp"
     },
     "web": {
       "bundler": "metro",
@@ -42,7 +42,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "react-native-background-geolocation"
     ],
     "experiments": {
       "typedRoutes": true
